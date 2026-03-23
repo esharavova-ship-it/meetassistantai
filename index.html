@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>MeetAssistantAI — транскрибация встреч</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Force light mode regardless of OS/browser dark theme */
+  :root { color-scheme: light only; }
+  html { background:#ffffff !important; }
+  * { -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #ffffff;
+    --bg2: #f7f7fb;
+    --bg3: #f0f0f8;
+    --card: #ffffff;
+    --border: #ebebf0;
+    --border2: #d8d8e8;
+    --ink: #111118;
+    --ink2: #3a3a4a;
+    --muted: #9090a8;
+    --blue: #4f6ef7;
+    --blue-light: #eef1fe;
+    --blue-mid: #c7d0fc;
+    --purple: #7c5af0;
+    --purple-light: #f2effe;
+    --green: #16a34a;
+    --green-light: #f0faf4;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --tag-bg: #eef1fe;
+    --tag-text: #4f6ef7;
+  }
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    background:#ffffff !important; color:#111118 !important;
+    font-family:'Manrope', sans-serif;
+    font-size:16px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  /* NAV */
+  nav {
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 64px; height:64px;
+    background:rgba(255,255,255,0.92);
+    backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--border);
+  }
+  .logo {
+    font-size:17px; font-weight:800; color:var(--ink);
+    letter-spacing:-0.4px;
+  }
+  .logo span { color:var(--blue); }
+  .nav-links { display:flex; gap:32px; align-items:center; }
+  .nav-links a { color:var(--muted); text-decoration:none; font-size:14px; font-weight:500; transition:color .2s; }
+  .nav-links a:hover { color:var(--ink); }
+  .nav-cta {
+    background:var(--blue) !important; color:#fff !important;
+    padding:9px 20px; border-radius:10px; font-size:14px; font-weight:600;
+    text-decoration:none; transition:opacity .2s, transform .15s;
+  }
+  .nav-cta:hover { opacity:0.88; transform:translateY(-1px); }
+
+  /* HERO */
+  .hero {
+    min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    padding:140px 40px 80px; text-align:center; position:relative;
+    background:radial-gradient(ellipse 80% 60% at 50% -10%, rgba(79,110,247,0.07) 0%, transparent 70%);
+  }
+  .hero-chip {
+    display:inline-flex; align-items:center; gap:7px;
+    background:var(--blue-light); border:1px solid var(--blue-mid);
+    color:var(--blue); padding:5px 14px 5px 10px; border-radius:100px;
+    font-size:12.5px; font-weight:600; margin-bottom:32px;
+    letter-spacing:0.01em;
+  }
+  .hero-chip-dot { width:6px; height:6px; border-radius:50%; background:var(--blue); animation:pulse 2s infinite; }
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
+
+  h1 {
+    font-size:clamp(40px, 6.5vw, 76px);
+    font-weight:800; line-height:1.05;
+    letter-spacing:-2.5px; color:var(--ink);
+    margin-bottom:24px; max-width:780px;
+  }
+  h1 .blue { color:var(--blue); }
+  .hero-sub {
+    font-size:clamp(15px,1.8vw,18px); color:var(--muted);
+    max-width:500px; margin:0 auto 48px;
+    font-weight:400; line-height:1.75;
+  }
+  .hero-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn-primary {
+    background:var(--blue); color:#fff; padding:14px 28px;
+    border-radius:12px; font-size:15px; font-weight:600;
+    text-decoration:none; transition:all .2s; display:inline-block;
+    box-shadow:0 4px 20px rgba(79,110,247,0.3);
+  }
+  .btn-primary:hover { opacity:0.88; transform:translateY(-2px); box-shadow:0 8px 28px rgba(79,110,247,0.35); }
+  .btn-secondary {
+    background:#fff; border:1.5px solid var(--border2);
+    color:var(--ink2); padding:14px 28px; border-radius:12px;
+    font-size:15px; font-weight:500; text-decoration:none;
+    transition:all .2s; display:inline-block;
+  }
+  .btn-secondary:hover { border-color:var(--blue); color:var(--blue); }
+
+  /* STAT BAR */
+  .stat-bar {
+    margin-top:48px; display:inline-flex; align-items:stretch; gap:0;
+    border:1.5px solid var(--border); border-radius:16px;
+    background:#fff; overflow:hidden;
+    box-shadow:0 2px 16px rgba(0,0,0,0.05);
+  }
+  .stat-item { padding:18px 32px; text-align:left; }
+  .stat-item + .stat-item { border-left:1.5px solid var(--border); }
+  .stat-label { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px; }
+  .stat-num { font-size:26px; font-weight:800; letter-spacing:-1px; line-height:1; }
+  .stat-num.crossed { color:var(--red); text-decoration:line-through; }
+  .stat-num.good { color:var(--green); }
+  .stat-caption { font-size:11.5px; color:var(--muted); margin-top:4px; font-weight:400; }
+
+  /* SCREEN MOCKUP */
+  .screen-wrapper { margin:72px auto 0; max-width:980px; width:100%; }
+  .screen-chrome {
+    background:#fff; border:1.5px solid var(--border);
+    border-radius:18px; overflow:hidden;
+    box-shadow:0 4px 6px rgba(0,0,0,0.02), 0 20px 60px rgba(79,110,247,0.08), 0 40px 80px rgba(0,0,0,0.06);
+  }
+  .screen-bar { background:#f9f9fc; padding:12px 18px; display:flex; align-items:center; gap:7px; border-bottom:1.5px solid var(--border); }
+  .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .screen-url { margin-left:10px; background:#ededf5; border-radius:7px; padding:4px 14px; font-size:11.5px; color:var(--muted); font-family:monospace; flex:1; max-width:270px; }
+  .screen-body { display:grid; grid-template-columns:200px 1fr; min-height:500px; }
+  .screen-sidebar { background:#f9f9fc; border-right:1.5px solid var(--border); padding:16px 0; }
+  .sidebar-title { padding:0 16px 10px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); }
+  .sidebar-item { padding:8px 16px; font-size:12.5px; color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:8px; border-left:2.5px solid transparent; transition:all .15s; font-weight:500; }
+  .sidebar-item:hover { color:var(--ink); background:rgba(79,110,247,0.04); }
+  .sidebar-item.active { color:var(--blue); background:var(--blue-light); border-left-color:var(--blue); font-weight:600; }
+  .screen-main { padding:24px; text-align:left; }
+  .screen-meeting-title { font-size:14px; font-weight:700; color:var(--ink); margin-bottom:6px; letter-spacing:-0.2px; }
+  .screen-meta { font-size:11.5px; color:var(--muted); margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .meta-tag { background:var(--green-light); color:var(--green); padding:2px 9px; border-radius:6px; font-size:10.5px; font-weight:600; }
+
+  /* TABS */
+  .screen-tabs { display:flex; gap:4px; margin-bottom:16px; background:var(--bg2); padding:3px; border-radius:10px; display:inline-flex; }
+  .tab { padding:6px 16px; font-size:12px; font-weight:600; cursor:pointer; color:var(--muted); transition:all .2s; border-radius:8px; user-select:none; }
+  .tab:hover { color:var(--ink); }
+  .tab.active { background:#fff; color:var(--blue); box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  /* SUMMARY */
+  .screen-summary { background:var(--blue-light); border:1px solid var(--blue-mid); border-radius:10px; padding:14px; margin-bottom:12px; }
+  .block-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .blabel { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.09em; color:var(--blue); }
+  .summary-text { font-size:12.5px; color:var(--ink2); line-height:1.72; }
+  .summary-text p { margin-bottom:8px; }
+  .stitle { font-size:10px; font-weight:700; color:var(--ink); text-transform:uppercase; letter-spacing:0.08em; margin:10px 0 5px; }
+  .action-items { display:flex; flex-direction:column; gap:6px; }
+  .action-item { display:flex; align-items:flex-start; gap:8px; background:#fff; padding:9px 12px; border-radius:10px; border:1.5px solid var(--border); font-size:12px; justify-content:space-between; }
+  .action-left { display:flex; gap:8px; align-items:flex-start; flex:1; }
+  .action-check { color:var(--green); flex-shrink:0; font-size:12px; margin-top:1px; }
+  .action-person { color:var(--blue); font-weight:700; margin-right:3px; }
+
+  /* TRANSCRIPT */
+  .transcript-block { background:var(--bg2); border:1.5px solid var(--border); border-radius:10px; padding:14px; max-height:390px; overflow-y:auto; text-align:left; }
+  .transcript-block::-webkit-scrollbar{width:4px}.transcript-block::-webkit-scrollbar-track{background:transparent}.transcript-block::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+  .tline { display:flex; gap:10px; margin-bottom:12px; }
+  .tline:last-child{margin-bottom:0}
+  .tline-t { font-size:10px; color:var(--muted); min-width:34px; flex-shrink:0; padding-top:2px; font-family:monospace; }
+  .tline-sp { font-size:11px; font-weight:700; color:var(--blue); min-width:60px; flex-shrink:0; }
+  .tline-tx { font-size:12.5px; color:var(--ink2); line-height:1.65; }
+  .tline-tx strong { color:var(--ink); font-weight:700; }
+
+  /* EMAIL PANEL */
+  .email-panel { background:#fff; border:1.5px solid var(--border); border-radius:10px; overflow:hidden; text-align:left; }
+  .email-style-bar { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1.5px solid var(--border); font-size:11px; color:var(--muted); background:var(--bg2); font-weight:500; }
+  .estab { padding:4px 12px; border-radius:7px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid var(--border); color:var(--muted); background:transparent; transition:all .15s; font-family:'Manrope',sans-serif; }
+  .estab.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .email-inner { padding:13px; text-align:left; }
+  .email-field { font-size:11px; color:var(--muted); margin-bottom:3px; font-weight:500; }
+  .email-field span { color:var(--ink2); }
+  .email-subj { font-size:12px; font-weight:700; margin:8px 0; padding:9px 0; border-top:1.5px solid var(--border); border-bottom:1.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--ink); }
+  .email-body-text { font-size:12px; color:var(--ink2); line-height:1.75; text-align:left; }
+  .email-body-text p{margin-bottom:8px}
+  .email-body-text strong{color:var(--ink);font-weight:700}
+  .email-body-text ul{margin:4px 0 8px 16px}
+  .email-body-text li{margin-bottom:3px}
+  .email-footer-bar { padding:9px 13px; border-top:1.5px solid var(--border); display:flex; align-items:center; justify-content:flex-end; }
+
+  /* COPY BTN */
+  .copy-btn {
+    display:inline-flex; align-items:center; gap:5px;
+    background:#fff; border:1.5px solid var(--border);
+    border-radius:8px; padding:4px 10px; font-size:11px; font-weight:600;
+    color:var(--muted); cursor:pointer; transition:all .15s;
+    user-select:none; font-family:'Manrope',sans-serif; flex-shrink:0;
+  }
+  .copy-btn:hover { border-color:var(--blue); color:var(--blue); background:var(--blue-light); }
+  .copy-btn svg { width:11px; height:11px; flex-shrink:0; }
+  .copy-btn.copied { border-color:var(--green); color:var(--green); background:var(--green-light); }
+  .copy-icon-only { padding:4px 6px; }
+
+  /* SECTION */
+  section { padding:120px 64px; }
+  .container { max-width:1100px; margin:0 auto; }
+  .section-chip { display:inline-flex; align-items:center; background:var(--blue-light); color:var(--blue); padding:4px 14px; border-radius:100px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:20px; }
+  h2 { font-size:clamp(32px,4.5vw,52px); font-weight:800; letter-spacing:-2px; line-height:1.05; margin-bottom:20px; color:var(--ink); }
+  .section-sub { font-size:17px; color:var(--muted); max-width:460px; line-height:1.75; margin-bottom:56px; font-weight:400; }
+
+  /* UPLOAD */
+  .upload-zone { border:2px dashed var(--blue-mid); border-radius:18px; padding:64px 40px; text-align:center; cursor:pointer; background:var(--blue-light); transition:all .2s; max-width:600px; margin:0 auto; }
+  .upload-zone:hover { border-color:var(--blue); background:#e8edfe; }
+  .upload-icon { font-size:44px; margin-bottom:18px; display:block; }
+  .upload-zone h3 { font-size:20px; font-weight:800; margin-bottom:10px; letter-spacing:-0.4px; }
+  .upload-zone p { font-size:14px; color:var(--muted); margin-bottom:22px; }
+  .upload-formats { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .fmt-badge { background:#fff; border:1.5px solid var(--blue-mid); padding:3px 11px; border-radius:6px; font-size:11px; color:var(--blue); font-weight:700; }
+
+  /* PAIN */
+  .pain-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .pain-card { background:#fff; border:1.5px solid var(--border); border-radius:18px; padding:36px 32px; transition:all .2s; }
+  .pain-card:hover { border-color:var(--blue-mid); transform:translateY(-3px); box-shadow:0 12px 32px rgba(79,110,247,0.08); }
+  .pain-emoji { font-size:32px; margin-bottom:20px; display:block; }
+  .pain-card h3 { font-size:16px; font-weight:700; margin-bottom:12px; letter-spacing:-0.3px; line-height:1.3; }
+  .pain-card p { font-size:14px; color:var(--muted); line-height:1.75; }
+
+  /* BENEFITS ACCORDION */
+  .benefits-list { display:flex; flex-direction:column; gap:8px; }
+  .benefit-item { background:#fff; border:1.5px solid var(--border); border-radius:16px; overflow:hidden; transition:border-color .2s; }
+  .benefit-item:has(.benefit-trigger.open) { border-color:var(--blue-mid); box-shadow:0 4px 20px rgba(79,110,247,0.06); }
+  .benefit-trigger { display:flex; align-items:center; gap:18px; padding:24px 28px; cursor:pointer; transition:background .15s; user-select:none; }
+  .benefit-trigger:hover { background:var(--bg2); }
+  .benefit-trigger.open { background:var(--blue-light); }
+  .benefit-icon-wrap { width:46px; height:46px; border-radius:12px; flex-shrink:0; background:var(--bg2); display:flex; align-items:center; justify-content:center; font-size:22px; border:1.5px solid var(--border); transition:all .2s; }
+  .benefit-trigger.open .benefit-icon-wrap { background:var(--blue-light); border-color:var(--blue-mid); }
+  .benefit-trigger-text { flex:1; text-align:left; }
+  .benefit-trigger-text h3 { font-size:15px; font-weight:700; margin-bottom:3px; color:var(--ink); letter-spacing:-0.2px; }
+  .benefit-trigger-text p { font-size:13px; color:var(--muted); }
+  .benefit-chevron { color:var(--muted); transition:transform .25s; font-size:18px; flex-shrink:0; }
+  .benefit-trigger.open .benefit-chevron { transform:rotate(180deg); color:var(--blue); }
+  .benefit-panel { max-height:0; overflow:hidden; transition:max-height .4s cubic-bezier(.4,0,.2,1); }
+  .benefit-panel.open { max-height:900px; }
+  .benefit-panel-inner { padding:0 28px 24px; text-align:left; }
+
+  /* DEMO CHROME */
+  .demo-chrome { background:#fff; border:1.5px solid var(--border); border-radius:12px; overflow:hidden; }
+  .demo-bar { background:#f9f9fc; padding:9px 14px; display:flex; align-items:center; gap:5px; border-bottom:1.5px solid var(--border); }
+  .demo-bar-label { font-size:11px; color:var(--muted); margin-left:8px; font-weight:500; }
+  .demo-content { padding:16px; text-align:left; }
+  .dlabel { font-size:10px; text-transform:uppercase; letter-spacing:0.09em; color:var(--blue); font-weight:700; }
+
+  .sdemo-block { background:var(--blue-light); border:1px solid var(--blue-mid); border-radius:10px; padding:13px; margin-bottom:10px; }
+  .sdemo-title { font-size:10px; text-transform:uppercase; letter-spacing:0.09em; color:var(--blue); font-weight:700; margin-bottom:7px; }
+  .sdemo-text { font-size:12.5px; color:var(--ink2); line-height:1.65; }
+  .sdemo-tasks { display:flex; flex-direction:column; gap:5px; }
+  .sdemo-task { display:flex; gap:8px; align-items:flex-start; font-size:12.5px; background:#fff; padding:9px 12px; border-radius:9px; border:1.5px solid var(--border); justify-content:space-between; }
+  .sdemo-task-left { display:flex; gap:8px; }
+  .sdemo-check { color:var(--green); flex-shrink:0; margin-top:1px; }
+  .sdemo-who { color:var(--blue); font-weight:700; margin-right:3px; }
+
+  .edemo { background:#fff; border:1.5px solid var(--border); border-radius:10px; overflow:hidden; }
+  .edemo-bar { padding:9px 13px; border-bottom:1.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--bg2); }
+  .edemo-label { font-size:11px; color:var(--muted); font-weight:600; }
+  .edemo-styles { display:flex; gap:6px; }
+  .edemo-style-btn { font-size:11px; padding:3px 11px; border-radius:7px; border:1.5px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-family:'Manrope',sans-serif; font-weight:600; transition:all .15s; }
+  .edemo-style-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .edemo-body { padding:14px; font-size:12.5px; color:var(--ink2); line-height:1.75; text-align:left; }
+  .edemo-body p{margin-bottom:8px}
+  .edemo-body strong{color:var(--ink);font-weight:700}
+  .edemo-body ul{margin:4px 0 8px 16px}
+  .edemo-body li{margin-bottom:3px}
+
+  .tg-demo { background:#e8ecf0; border-radius:12px; padding:16px; text-align:left; }
+  .tgm { margin-bottom:8px; max-width:88%; }
+  .tgm.bot { background:#fff; border-radius:4px 14px 14px 14px; padding:10px 14px; font-size:12.5px; color:var(--ink2); box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+  .tgm.user { background:#2d9cf5; border-radius:14px 14px 4px 14px; padding:10px 14px; font-size:12.5px; color:#fff; margin-left:auto; text-align:right; }
+  .tg-btns { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .tg-btn-d { background:#2d9cf5; border-radius:8px; padding:6px 14px; font-size:11.5px; font-weight:600; color:#fff; display:inline-block; }
+  .tg-btn-d.ghost { background:rgba(45,156,245,0.15); color:#2d9cf5; }
+
+  /* PRICING */
+  .pricing-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .price-card { background:#fff; border:1.5px solid var(--border); border-radius:20px; padding:40px 36px; position:relative; transition:all .2s; }
+  .price-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(0,0,0,0.07); }
+  .price-card.featured { border-color:var(--blue); background:linear-gradient(160deg, var(--blue-light) 0%, #fff 60%); box-shadow:0 8px 32px rgba(79,110,247,0.12); }
+  .price-badge { position:absolute; top:-14px; left:50%; transform:translateX(-50%); background:var(--blue); color:#fff; padding:4px 18px; border-radius:100px; font-size:11px; font-weight:700; white-space:nowrap; letter-spacing:0.05em; }
+  .price-plan { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:18px; }
+  .price-amount { font-size:44px; font-weight:800; letter-spacing:-2px; margin-bottom:4px; line-height:1; color:var(--ink); }
+  .price-amount small { font-size:16px; font-weight:400; color:var(--muted); }
+  .price-limit { font-size:13px; color:var(--muted); margin-bottom:28px; }
+  .price-limit strong { color:var(--ink); font-weight:700; }
+  .price-features { list-style:none; margin-bottom:32px; display:flex; flex-direction:column; gap:9px; }
+  .price-features li { font-size:13.5px; display:flex; gap:9px; align-items:flex-start; color:var(--ink2); }
+  .price-features li::before { content:'✓'; color:var(--blue); font-weight:800; flex-shrink:0; }
+  .price-card.featured .price-features li::before { color:var(--blue); }
+  .btn-plan { display:block; text-align:center; padding:13px; border-radius:12px; font-weight:700; font-size:14px; text-decoration:none; transition:all .2s; }
+  .btn-plan-outline { border:1.5px solid var(--border); color:var(--ink); }
+  .btn-plan-outline:hover { border-color:var(--blue); color:var(--blue); }
+  .btn-plan-filled { background:var(--blue); color:#fff; box-shadow:0 4px 16px rgba(79,110,247,0.3); }
+  .btn-plan-filled:hover { opacity:0.88; transform:translateY(-1px); }
+
+  /* CTA */
+  .cta-section { background:linear-gradient(135deg, #1a1a3e 0%, #1e2060 50%, #162060 100%); text-align:center; padding:120px 64px; }
+  .cta-section h2 { color:#fff; margin-bottom:18px; }
+  .cta-section p { font-size:17px; color:rgba(255,255,255,0.5); margin-bottom:48px; font-weight:400; }
+  .btn-cta-white { background:#fff; color:var(--blue); padding:14px 32px; border-radius:12px; font-size:15px; font-weight:700; text-decoration:none; display:inline-block; transition:all .2s; box-shadow:0 4px 20px rgba(0,0,0,0.2); }
+  .btn-cta-white:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,0.25); }
+
+  footer { padding:36px 64px; display:flex; align-items:center; justify-content:space-between; border-top:1.5px solid var(--border); }
+  footer p { font-size:13px; color:var(--muted); }
+
+  .toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(60px); background:var(--ink); color:#fff; padding:9px 22px; border-radius:100px; font-size:13px; font-weight:600; z-index:9999; transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s; opacity:0; pointer-events:none; }
+  .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+  @media(max-width:900px){
+    nav{padding:0 20px;}.nav-links{gap:14px;}
+    section{padding:80px 24px;}
+    .pain-grid{grid-template-columns:1fr;}
+    .pricing-grid{grid-template-columns:1fr;}
+    footer{flex-direction:column;gap:12px;text-align:center;}
+    .stat-bar{flex-direction:column;}
+    .stat-item+.stat-item{border-left:none;border-top:1.5px solid var(--border);}
+    .hero{padding:120px 24px 80px;}
+
+    /* На мобиле: сайдбар становится горизонтальным скроллом сверху */
+    .screen-body { grid-template-columns: 1fr; }
+    .screen-sidebar {
+      display:block;
+      border-right:none;
+      border-bottom:1.5px solid var(--border);
+      padding:10px 0;
+      overflow-x:auto;
+      white-space:nowrap;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+    }
+    .screen-sidebar::-webkit-scrollbar { display:none; }
+    .sidebar-title { display:none; }
+    .sidebar-item {
+      display:inline-flex;
+      border-left:none;
+      border-bottom:2.5px solid transparent;
+      padding:8px 14px;
+      font-size:12px;
+      vertical-align:top;
+      white-space:nowrap;
+    }
+    .sidebar-item.active {
+      background:var(--blue-light);
+      border-bottom-color:var(--blue);
+      border-left:none;
+    }
+  }
+
+  /* ── FORCE LIGHT MODE — override any OS/browser dark theme ── */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #ffffff;
+      --bg2: #f7f7fb;
+      --bg3: #f0f0f8;
+      --card: #ffffff;
+      --border: #ebebf0;
+      --border2: #d8d8e8;
+      --ink: #111118;
+      --ink2: #3a3a4a;
+      --muted: #9090a8;
+      --blue: #4f6ef7;
+      --blue-light: #eef1fe;
+      --blue-mid: #c7d0fc;
+      --green: #16a34a;
+      --green-light: #f0faf4;
+      --red: #dc2626;
+    }
+    html, body { background:#ffffff !important; color:#111118 !important; }
+    nav { background:rgba(255,255,255,0.92) !important; }
+    input, button, select, textarea { background:#fff !important; color:#111118 !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast">Скопировано ✓</div>
+
+<nav>
+  <div class="logo">Meet<span>Assistant</span>AI</div>
+  <div class="nav-links">
+    <a href="#upload">Попробовать</a>
+    <a href="#benefits">Возможности</a>
+    <a href="#pricing">Цены</a>
+    <a href="#pricing" class="nav-cta">Начать бесплатно</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-chip"><span class="hero-chip-dot"></span> ИИ-ассистент для встреч</div>
+  <h1>Забудь про заметки <span class="blue">навсегда</span></h1>
+  <p class="hero-sub">Загрузи запись встречи — получи транскрипт, саммери, ответственных, задачи и готовый follow-up имейл за секунды.</p>
+  <div class="hero-actions">
+    <a href="#upload" class="btn-primary">Загрузить запись — бесплатно</a>
+    <a href="#benefits" class="btn-secondary">Как это работает</a>
+  </div>
+
+  <div class="stat-bar">
+    <div class="stat-item">
+      <div class="stat-label">Обычно уходит</div>
+      <div class="stat-num crossed">47 мин</div>
+      <div class="stat-caption">на follow-up после встречи</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">С нами</div>
+      <div class="stat-num good">2 мин</div>
+      <div class="stat-caption">экономия 45 минут каждый раз</div>
+    </div>
+  </div>
+
+  <div class="screen-wrapper">
+    <div class="screen-chrome">
+      <div class="screen-bar">
+        <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+        <div class="screen-url">meetassistantai.ru/meetings/sync-25-mar</div>
+      </div>
+      <div class="screen-body">
+        <div class="screen-sidebar">
+          <div class="sidebar-title">Мои встречи</div>
+          <div class="sidebar-item active" onclick="switchMeeting(this, 0)">📋 Синк-звонок 25 марта</div>
+          <div class="sidebar-item" onclick="switchMeeting(this, 1)">📋 Q1 Ревью команды</div>
+          <div class="sidebar-item" onclick="switchMeeting(this, 2)">📋 Онбординг Максима</div>
+          <div class="sidebar-item" onclick="switchMeeting(this, 3)">📋 Встреча с клиентом</div>
+          <div class="sidebar-item" onclick="switchMeeting(this, 4)">📋 Стендап 20 марта</div>
+        </div>
+        <div class="screen-main">
+          <div class="screen-meeting-title">Еженедельный синк команды продукта</div>
+          <div class="screen-meta">
+            <span>25 марта · 47 мин · 5 участников</span>
+            <span class="meta-tag">✓ Обработано</span>
+          </div>
+          <div class="screen-tabs">
+            <div class="tab active" id="tab-summary" onclick="switchTab('summary')">Саммери</div>
+            <div class="tab" id="tab-transcript" onclick="switchTab('transcript')">Транскрипт</div>
+            <div class="tab" id="tab-email" onclick="switchTab('email')">Follow-up</div>
+          </div>
+
+          <div class="tab-panel active" id="panel-summary">
+            <div class="screen-summary">
+              <div class="block-header">
+                <div class="blabel">Краткое резюме</div>
+                <button class="copy-btn" onclick="doCopy('Обсуждали запуск новой фичи. Перенесли релиз на 1 апреля. Выявили 3 блокера по интеграции с платёжкой.',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Копировать</button>
+              </div>
+              <div class="summary-text">
+                <p>Команда провела еженедельный синк по статусу разработки. Обсудили запуск новой фичи оплаты, выявили критические блокеры в интеграции с платёжным шлюзом.</p>
+                <div class="stitle">Ключевые решения</div>
+                <p>• Релиз перенесён с 28 марта на <strong>1 апреля</strong> — нужно исправить баги в API<br>• Алексей полностью переключается на платёжку до конца недели<br>• Маша актуализирует дизайн чекаута под новый флоу оплаты</p>
+                <div class="stitle">Риски и блокеры</div>
+                <p>• Интеграция с эквайером возвращает ошибку 422 при 3D-Secure<br>• Нет финального текста для страницы ошибки оплаты<br>• Клиент ещё не подтвердил новые сроки</p>
+              </div>
+            </div>
+            <div class="block-header" style="margin-bottom:8px">
+              <div class="blabel" style="color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;font-weight:700">Задачи и ответственные</div>
+              <button class="copy-btn" onclick="doCopy('Алексей: исправить баг в API (28 марта)\nМаша: дизайн чекаута (27 марта)\nДима: написать клиенту (сегодня)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Копировать всё</button>
+            </div>
+            <div class="action-items">
+              <div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Алексей:</span> Исправить баг в платёжном API (ошибка 422) · до 28 марта</div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Алексей: исправить баг в платёжном API (28 марта)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              <div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Маша:</span> Обновить дизайн чекаута, прислать макет · до 27 марта</div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Маша: обновить дизайн чекаута (27 марта)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              <div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Дима:</span> Написать клиенту о переносе релиза · сегодня</div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Дима: написать клиенту о переносе (сегодня)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="panel-transcript">
+            <div class="transcript-block">
+              <div class="block-header" style="margin-bottom:14px">
+                <div class="dlabel">Полный транскрипт</div>
+                <button class="copy-btn" onclick="doCopy('Транскрипт скопирован',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Копировать</button>
+              </div>
+              <div class="tline"><span class="tline-t">00:12</span><span class="tline-sp">Дима</span><span class="tline-tx">Окей, давайте начнём. Главная тема — <strong>статус по платёжной интеграции</strong>. Алексей, расскажи где мы.</span></div>
+              <div class="tline"><span class="tline-t">00:48</span><span class="tline-sp">Алексей</span><span class="tline-tx">Основной блокер — <strong>ошибка 422 при 3D-Secure</strong>. Смотрел логи вчера — скорее всего дело в заголовках запроса.</span></div>
+              <div class="tline"><span class="tline-t">02:15</span><span class="tline-sp">Дима</span><span class="tline-tx">Понял. Сколько нужно? <strong>Можем пушить релиз или нет?</strong></span></div>
+              <div class="tline"><span class="tline-t">02:29</span><span class="tline-sp">Алексей</span><span class="tline-tx">Два-три дня если только этим. Честно — лучше заложить до <strong>1 апреля</strong>.</span></div>
+              <div class="tline"><span class="tline-t">03:44</span><span class="tline-sp">Маша</span><span class="tline-tx">Тогда у меня тоже больше времени. Переделываю чекаут — нужен финальный текст для страницы ошибки.</span></div>
+              <div class="tline"><span class="tline-t">05:10</span><span class="tline-sp">Дима</span><span class="tline-tx">Окей, <strong>переносим релиз на 1 апреля</strong>. Я пишу клиенту. Алексей — платёжка, Маша — дизайн.</span></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="panel-email">
+            <div class="email-panel">
+              <div class="email-style-bar">
+                <span>Стиль письма:</span>
+                <button class="estab active" id="estab-detailed" onclick="setHeroEmail('detailed')">Детальный</button>
+                <button class="estab" id="estab-short" onclick="setHeroEmail('short')">Краткий</button>
+              </div>
+              <div class="email-inner">
+                <div class="email-field">Кому: <span>aleksey&#64;company&#46;ru, masha&#64;company&#46;ru, kate&#64;company&#46;ru</span></div>
+                <div class="email-subj">
+                  <span>Итоги синк-звонка 25 марта — задачи и следующие шаги</span>
+                  <button class="copy-btn copy-icon-only" onclick="doCopy('Итоги синк-звонка 25 марта — задачи и следующие шаги',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                </div>
+                <div class="email-body-text" id="hero-email-body">
+                  <p>Уважаемые коллеги,</p>
+                  <p>По итогам встречи команды от 25 марта направляю краткое резюме принятых решений и перечень задач для исполнения.</p>
+                  <p><strong>Принятые решения:</strong></p>
+                  <ul><li>Дата релиза перенесена с 28 марта на 1 апреля в связи с выявленным критическим дефектом в модуле платёжной интеграции</li><li>Алексей Иванов сосредотачивает усилия на устранении ошибки 422 при прохождении 3D-Secure авторизации</li></ul>
+                  <p><strong>Задачи и ответственные:</strong></p>
+                  <ul><li>Алексей Иванов — устранить ошибку 422 в платёжном API. Срок: 28 марта</li><li>Мария Смирнова — актуализировать дизайн чекаута, передать макет на согласование. Срок: 27 марта</li><li>Дмитрий Козлов — уведомить клиента об изменении сроков релиза. Срок: сегодня</li></ul>
+                  <p><strong>Следующая встреча:</strong> 1 апреля, 12:00. Ссылка для подключения остаётся прежней.</p>
+                  <p>С уважением,<br>Дмитрий Козлов</p>
+                </div>
+              </div>
+              <div class="email-footer-bar">
+                <button class="copy-btn" onclick="doCopy('Уважаемые коллеги,\n\nПо итогам встречи от 25 марта направляю резюме принятых решений.\n\nПринятые решения:\n- Релиз перенесён на 1 апреля\n\nЗадачи:\n- Алексей Иванов: устранить ошибку 422 (срок: 28 марта)\n- Мария Смирнова: актуализировать дизайн чекаута (срок: 27 марта)\n- Дмитрий Козлов: уведомить клиента об изменении сроков (сегодня)\n\nСледующая встреча: 1 апреля, 12:00.\n\nС уважением,\nДмитрий Козлов',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Копировать письмо</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<section id="upload" style="background:var(--bg2)">
+  <div class="container" style="text-align:center">
+    <div class="section-chip">Попробуй прямо сейчас</div>
+    <h2>Загрузи запись встречи</h2>
+    <p class="section-sub" style="margin:0 auto 48px">Поддерживаем MP3, MP4, WAV, M4A, WebM и другие форматы</p>
+    <div class="upload-zone" onclick="alert('Сервис запускается — оставь email и получи ранний доступ!')">
+      <span class="upload-icon">🎙️</span>
+      <h3>Перетащи файл или нажми для выбора</h3>
+      <p>Максимум 2 ГБ · Первые 180 минут бесплатно · Карта не нужна</p>
+      <div class="upload-formats">
+        <span class="fmt-badge">MP3</span><span class="fmt-badge">MP4</span><span class="fmt-badge">WAV</span>
+        <span class="fmt-badge">M4A</span><span class="fmt-badge">WebM</span><span class="fmt-badge">MOV</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PAIN -->
+<section>
+  <div class="container">
+    <div class="section-chip">Знакомо?</div>
+    <h2>Боль каждого<br>звонка</h2>
+    <div class="pain-grid">
+      <div class="pain-card"><span class="pain-emoji">✍️</span><h3>Заметки во время звонка отвлекают</h3><p>Пока записываешь — пропускаешь важное. Пока слушаешь — забываешь записать. Всегда что-то теряется.</p></div>
+      <div class="pain-card"><span class="pain-emoji">😰</span><h3>Страх пропустить что-то важное</h3><p>Ключевые решения, договорённости и цифры — всё смешивается. Потом ищешь в памяти или переспрашиваешь.</p></div>
+      <div class="pain-card"><span class="pain-emoji">⏰</span><h3>Час на follow-up после каждого звонка</h3><p>Написать задачи, собрать выводы, составить письмо. А ещё три звонка впереди. Времени нет.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFITS -->
+<section id="benefits" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-chip">Возможности</div>
+    <h2>Всё что нужно<br>после встречи</h2>
+    <p class="section-sub">Нажми на любую возможность — покажем как это выглядит в сервисе</p>
+    <div class="benefits-list">
+
+      <div class="benefit-item">
+        <div class="benefit-trigger" onclick="toggleAccordion(this)">
+          <div class="benefit-icon-wrap">🎙️</div>
+          <div class="benefit-trigger-text"><h3>Точный транскрипт аудио и видео</h3><p>Конвертируем запись в читаемый текст с разбивкой по спикерам</p></div>
+          <span class="benefit-chevron">⌄</span>
+        </div>
+        <div class="benefit-panel"><div class="benefit-panel-inner">
+          <div class="demo-chrome">
+            <div class="demo-bar"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="demo-bar-label">Транскрипт · Синк 25 марта</span></div>
+            <div class="demo-content">
+              <div class="block-header" style="margin-bottom:12px"><div class="dlabel">Полный транскрипт с разбивкой по спикерам</div><button class="copy-btn" onclick="doCopy('Транскрипт скопирован',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Копировать</button></div>
+              <div class="tline"><span class="tline-t">00:12</span><span class="tline-sp">Дима</span><span class="tline-tx">Давайте начнём. Главная тема — <strong>статус платёжной интеграции</strong>.</span></div>
+              <div class="tline"><span class="tline-t">00:48</span><span class="tline-sp">Алексей</span><span class="tline-tx">Основной блокер — <strong>ошибка 422 при 3D-Secure</strong>. Думаю дело в заголовках запроса.</span></div>
+              <div class="tline"><span class="tline-t">02:29</span><span class="tline-sp">Алексей</span><span class="tline-tx">Если только этим займусь — к 28-му. Честно — лучше заложить до <strong>1 апреля</strong>.</span></div>
+              <div class="tline"><span class="tline-t">05:10</span><span class="tline-sp">Дима</span><span class="tline-tx">Окей, <strong>переносим релиз на 1 апреля</strong>. Алексей — платёжка, Маша — дизайн.</span></div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="benefit-item">
+        <div class="benefit-trigger" onclick="toggleAccordion(this)">
+          <div class="benefit-icon-wrap">📝</div>
+          <div class="benefit-trigger-text"><h3>Умное саммери</h3><p>Главное, ключевые решения и риски — без воды, за секунды</p></div>
+          <span class="benefit-chevron">⌄</span>
+        </div>
+        <div class="benefit-panel"><div class="benefit-panel-inner">
+          <div class="demo-chrome">
+            <div class="demo-bar"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="demo-bar-label">Саммери · Синк 25 марта</span></div>
+            <div class="demo-content">
+              <div class="sdemo-block">
+                <div class="block-header" style="margin-bottom:8px"><div class="sdemo-title">Краткое резюме</div><button class="copy-btn" onclick="doCopy('Обсуждали статус платёжной интеграции. Выявили баг 422 при 3D-Secure. Релиз перенесён на 1 апреля.',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Копировать</button></div>
+                <div class="sdemo-text">Команда обсудила статус интеграции с платёжным шлюзом. Выявлен критический баг при 3D-Secure. <strong>Решение: перенести релиз на 1 апреля.</strong></div>
+              </div>
+              <div class="sdemo-title" style="margin-bottom:8px">Задачи и ответственные</div>
+              <div class="sdemo-tasks">
+                <div class="sdemo-task"><div class="sdemo-task-left"><span class="sdemo-check">✓</span><div><span class="sdemo-who">Алексей:</span> исправить ошибку 422 в API · до 28 марта</div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Алексей: исправить ошибку 422 (28 марта)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+                <div class="sdemo-task"><div class="sdemo-task-left"><span class="sdemo-check">✓</span><div><span class="sdemo-who">Маша:</span> обновить дизайн чекаута · до 27 марта</div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Маша: дизайн чекаута (27 марта)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+                <div class="sdemo-task"><div class="sdemo-task-left"><span class="sdemo-check">✓</span><div><span class="sdemo-who">Дима:</span> написать клиенту о переносе · сегодня</div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Дима: написать клиенту сегодня',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="benefit-item">
+        <div class="benefit-trigger" onclick="toggleAccordion(this)">
+          <div class="benefit-icon-wrap">✅</div>
+          <div class="benefit-trigger-text"><h3>Ответственные и следующие шаги</h3><p>Кто что делает и к какому дедлайну — зафиксировано автоматически</p></div>
+          <span class="benefit-chevron">⌄</span>
+        </div>
+        <div class="benefit-panel"><div class="benefit-panel-inner">
+          <div class="demo-chrome">
+            <div class="demo-bar"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="demo-bar-label">Следующие шаги · Синк 25 марта</span></div>
+            <div class="demo-content">
+              <div class="block-header" style="margin-bottom:12px"><div class="dlabel">Ответственные, задачи и дедлайны</div><button class="copy-btn" onclick="doCopy('Алексей: исправить API (28 марта)\nМаша: дизайн чекаута (27 марта)\nДима: написать клиенту (сегодня)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Копировать всё</button></div>
+              <div class="sdemo-tasks">
+                <div class="sdemo-task"><div class="sdemo-task-left"><span class="sdemo-check">✓</span><div><span class="sdemo-who">Алексей</span> — Исправить баг 422 в платёжном API<br><span style="font-size:11px;color:var(--muted)">Дедлайн: 28 марта · Приоритет высокий</span></div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Алексей: баг 422 (28 марта)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+                <div class="sdemo-task"><div class="sdemo-task-left"><span class="sdemo-check">✓</span><div><span class="sdemo-who">Маша</span> — Обновить дизайн чекаута, прислать макет<br><span style="font-size:11px;color:var(--muted)">Дедлайн: 27 марта · Приоритет средний</span></div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Маша: дизайн (27 марта)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+                <div class="sdemo-task"><div class="sdemo-task-left"><span class="sdemo-check">✓</span><div><span class="sdemo-who">Дима</span> — Написать клиенту о переносе релиза<br><span style="font-size:11px;color:var(--muted)">Дедлайн: сегодня · Приоритет высокий</span></div></div><button class="copy-btn copy-icon-only" onclick="doCopy('Дима: написать клиенту (сегодня)',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="benefit-item">
+        <div class="benefit-trigger" onclick="toggleAccordion(this)">
+          <div class="benefit-icon-wrap">✉️</div>
+          <div class="benefit-trigger-text"><h3>Драфт follow-up имейла</h3><p>Два стиля: детальный с контекстом или краткий с выводами и шагами</p></div>
+          <span class="benefit-chevron">⌄</span>
+        </div>
+        <div class="benefit-panel"><div class="benefit-panel-inner">
+          <div class="edemo">
+            <div class="edemo-bar">
+              <div class="edemo-label">Черновик follow-up имейла</div>
+              <div class="edemo-styles">
+                <button class="edemo-style-btn active" id="acc-email-detailed" onclick="switchAccordionEmail('detailed')">Детальный</button>
+                <button class="edemo-style-btn" id="acc-email-short" onclick="switchAccordionEmail('short')">Краткий</button>
+              </div>
+            </div>
+            <div class="edemo-body">
+              <p><strong>Кому:</strong> aleksey&#64;company&#46;ru, masha&#64;company&#46;ru</p>
+              <p><strong>Тема:</strong> Итоги синк-звонка 25 марта — задачи и следующие шаги</p>
+              <hr style="border:none;border-top:1.5px solid var(--border);margin:10px 0">
+              <div id="acc-email-content">
+                  <p>Уважаемые коллеги,</p>
+                  <p>По итогам встречи команды от 25 марта направляю краткое резюме принятых решений и перечень задач для исполнения.</p>
+                  <p><strong>Принятые решения:</strong></p>
+                  <ul><li>Дата релиза перенесена с 28 марта на 1 апреля в связи с выявленным критическим дефектом в модуле платёжной интеграции</li><li>Алексей Иванов сосредотачивает усилия на устранении ошибки 422 при прохождении 3D-Secure авторизации</li></ul>
+                  <p><strong>Задачи и ответственные:</strong></p>
+                  <ul><li>Алексей Иванов — устранить ошибку 422 в платёжном API. Срок: 28 марта</li><li>Мария Смирнова — актуализировать дизайн чекаута, передать макет на согласование. Срок: 27 марта</li><li>Дмитрий Козлов — уведомить клиента об изменении сроков релиза. Срок: сегодня</li></ul>
+                  <p><strong>Следующая встреча:</strong> 1 апреля, 12:00. Ссылка для подключения остаётся прежней.</p>
+                  <p>С уважением,<br>Дмитрий Козлов</p>
+                </div>
+            </div>
+            <div style="padding:10px 13px;border-top:1.5px solid var(--border);display:flex;justify-content:flex-end">
+              <button class="copy-btn" onclick="doCopy('Уважаемые коллеги,\n\nПо итогам встречи от 25 марта направляю резюме принятых решений.\n\nПринятые решения:\n- Релиз перенесён на 1 апреля\n\nЗадачи:\n- Алексей Иванов: устранить ошибку 422 (срок: 28 марта)\n- Мария Смирнова: актуализировать дизайн чекаута (срок: 27 марта)\n- Дмитрий Козлов: уведомить клиента об изменении сроков (сегодня)\n\nСледующая встреча: 1 апреля, 12:00.\n\nС уважением,\nДмитрий Козлов',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Копировать письмо</button>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="benefit-item">
+        <div class="benefit-trigger" onclick="toggleAccordion(this)">
+          <div class="benefit-icon-wrap">🤖</div>
+          <div class="benefit-trigger-text"><h3>Telegram-бот</h3><p>Скинь запись прямо в бот — получи всё там же, без сайта</p></div>
+          <span class="benefit-chevron">⌄</span>
+        </div>
+        <div class="benefit-panel"><div class="benefit-panel-inner">
+          <div class="demo-chrome">
+            <div class="demo-bar"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="demo-bar-label">@MeetAssistantAIBot</span></div>
+            <div class="demo-content">
+              <div class="tg-demo">
+                <div class="tgm bot">Привет! Скинь запись встречи — сделаю транскрипт, выделю главное и напишу follow-up имейл 🎙️</div>
+                <div class="tgm user">📎 meeting_25_march.mp3<br><span style="font-size:10px;color:rgba(255,255,255,0.7)">12:34 ✓✓</span></div>
+                <div class="tgm bot">Получил! Обрабатываю запись (47 мин)...<br><span style="font-size:11px;color:var(--muted)">Займёт ~2 минуты</span></div>
+                <div class="tgm bot">✅ <strong>Готово!</strong><br><br><strong>Саммери:</strong> Перенесли релиз на 1 апреля. Блокер — ошибка 422 в API.<br><br><strong>Задачи:</strong><br>· Алексей: API (28 марта)<br>· Маша: дизайн (27 марта)<br>· Дима: письмо клиенту (сегодня)<br><br>Какой стиль follow-up имейла?
+                  <div class="tg-btns"><div class="tg-btn-d">Детальный</div><div class="tg-btn-d ghost">Краткий</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="container">
+    <div class="section-chip">Цены</div>
+    <h2>Прозрачные тарифы</h2>
+    <p class="section-sub">Начни бесплатно. Плати только когда нужно больше.</p>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-plan">Старт</div>
+        <div class="price-amount">0 <small>₽/мес</small></div>
+        <div class="price-limit"><strong>180 минут</strong> бесплатно каждый месяц</div>
+        <ul class="price-features"><li>Транскрипция аудио и видео</li><li>Автоматическое саммери</li><li>Задачи и ответственные</li><li>Follow-up имейл (2 стиля)</li><li>Telegram-бот</li></ul>
+        <a href="#" class="btn-plan btn-plan-outline">Начать бесплатно</a>
+      </div>
+      <div class="price-card featured">
+        <div class="price-badge">Популярный</div>
+        <div class="price-plan">Про</div>
+        <div class="price-amount">1 000 <small>₽/мес</small></div>
+        <div class="price-limit"><strong>20 часов</strong> встреч в месяц</div>
+        <ul class="price-features"><li>Всё из тарифа Старт</li><li>20 часов обработки в месяц</li><li>Приоритетная обработка</li><li>История всех встреч</li><li>Поиск по транскриптам</li></ul>
+        <a href="#" class="btn-plan btn-plan-filled">Выбрать Про</a>
+      </div>
+      <div class="price-card">
+        <div class="price-plan">Бизнес</div>
+        <div class="price-amount">2 000 <small>₽/мес</small></div>
+        <div class="price-limit"><strong>40 часов</strong> встреч в месяц</div>
+        <ul class="price-features"><li>Всё из тарифа Про</li><li>40 часов обработки в месяц</li><li>Командный доступ</li><li>Экспорт в Notion / Docs</li><li>Приоритетная поддержка</li></ul>
+        <a href="#" class="btn-plan btn-plan-outline">Выбрать Бизнес</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container">
+    <h2>Попробуй прямо сейчас</h2>
+    <p>180 минут бесплатно. Карта не нужна.</p>
+    <a href="#upload" class="btn-cta-white">Загрузить запись — бесплатно</a>
+  </div>
+</section>
+
+<footer>
+  <div class="logo">Meet<span style="color:var(--blue)">Assistant</span>AI</div>
+  <p>© 2025 MeetAssistantAI. Все права защищены.</p>
+  <p>Политика конфиденциальности · Условия</p>
+</footer>
+
+<script>
+function switchTab(name){['summary','transcript','email'].forEach(function(n){document.getElementById('tab-'+n).classList.toggle('active',n===name);document.getElementById('panel-'+n).classList.toggle('active',n===name);});}
+
+var meetings = [
+  {
+    title: 'Еженедельный синк команды продукта',
+    meta: '25 марта · 47 мин · 5 участников',
+    url: 'meetassistantai.ru/meetings/sync-25-mar',
+    summary: '<div class="screen-summary"><div class="block-header"><div class="blabel">Краткое резюме</div></div><div class="summary-text"><p>Команда провела еженедельный синк по статусу разработки. Обсудили запуск новой фичи оплаты, выявили критические блокеры в интеграции с платёжным шлюзом.</p><div class="stitle">Ключевые решения</div><p>• Релиз перенесён с 28 марта на <strong>1 апреля</strong><br>• Алексей переключается на платёжку до конца недели</p><div class="stitle">Риски и блокеры</div><p>• Интеграция возвращает ошибку 422 при 3D-Secure<br>• Клиент ещё не подтвердил новые сроки</p></div></div><div class="block-header" style="margin-bottom:8px"><div class="blabel" style="color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;font-weight:700">Задачи и ответственные</div></div><div class="action-items"><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Алексей:</span> Исправить баг в платёжном API · до 28 марта</div></div></div><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Маша:</span> Обновить дизайн чекаута · до 27 марта</div></div></div><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Дима:</span> Написать клиенту о переносе · сегодня</div></div></div></div>'
+  },
+  {
+    title: 'Q1 Ревью команды — итоги квартала',
+    meta: '18 марта · 1 ч 12 мин · 8 участников',
+    url: 'meetassistantai.ru/meetings/q1-review',
+    summary: '<div class="screen-summary"><div class="block-header"><div class="blabel">Краткое резюме</div></div><div class="summary-text"><p>Команда подвела итоги первого квартала. Обсудили выполнение OKR, ключевые метрики продукта и приоритеты на Q2. Общий результат — 78% целей достигнуто.</p><div class="stitle">Ключевые решения</div><p>• Сдвигаем запуск мобильного приложения на май<br>• Найм двух разработчиков в приоритете на апрель<br>• NPS вырос с 42 до 61 — продолжаем курс</p></div></div><div class="block-header" style="margin-bottom:8px"><div class="blabel" style="color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;font-weight:700">Задачи и ответственные</div></div><div class="action-items"><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Катя:</span> Подготовить роадмап Q2 для совета директоров · до 25 марта</div></div></div><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">HR:</span> Открыть вакансии двух разработчиков · до 20 марта</div></div></div></div>'
+  },
+  {
+    title: 'Онбординг нового сотрудника — Максим',
+    meta: '15 марта · 38 мин · 3 участника',
+    url: 'meetassistantai.ru/meetings/onboarding-maxim',
+    summary: '<div class="screen-summary"><div class="block-header"><div class="blabel">Краткое резюме</div></div><div class="summary-text"><p>Первичная встреча с новым разработчиком Максимом. Прошли по структуре команды, процессам разработки, стеку технологий и ближайшим задачам на испытательный срок.</p><div class="stitle">Ключевые договорённости</div><p>• Максим приступает к первой задаче с понедельника<br>• Ментор — Алексей, еженедельные 1-on-1 по пятницам<br>• Доступы к системам настраивает IT-отдел до пятницы</p></div></div><div class="block-header" style="margin-bottom:8px"><div class="blabel" style="color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;font-weight:700">Задачи и ответственные</div></div><div class="action-items"><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">IT:</span> Выдать доступы ко всем системам · до 17 марта</div></div></div><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Алексей:</span> Провести code review первого PR Максима · до 22 марта</div></div></div></div>'
+  },
+  {
+    title: 'Встреча с клиентом — ООО «Торговый дом»',
+    meta: '12 марта · 55 мин · 4 участника',
+    url: 'meetassistantai.ru/meetings/client-call',
+    summary: '<div class="screen-summary"><div class="block-header"><div class="blabel">Краткое резюме</div></div><div class="summary-text"><p>Встреча с представителями клиента по статусу внедрения и обсуждению расширения контракта. Клиент доволен результатами, но запросил ряд доработок перед продлением.</p><div class="stitle">Ключевые решения</div><p>• Клиент готов продлить контракт при условии добавления 3 фич<br>• Дедлайн предоставления КП — 20 марта<br>• Встреча для финального согласования — 1 апреля</p></div></div><div class="block-header" style="margin-bottom:8px"><div class="blabel" style="color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;font-weight:700">Задачи и ответственные</div></div><div class="action-items"><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Дима:</span> Подготовить коммерческое предложение · до 20 марта</div></div></div><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Катя:</span> Оценить трудозатраты по 3 фичам · до 18 марта</div></div></div></div>'
+  },
+  {
+    title: 'Ежедневный стендап команды',
+    meta: '20 марта · 15 мин · 6 участников',
+    url: 'meetassistantai.ru/meetings/standup-20-mar',
+    summary: '<div class="screen-summary"><div class="block-header"><div class="blabel">Краткое резюме</div></div><div class="summary-text"><p>Ежедневный стендап. Команда отчиталась по текущим задачам, озвучила блокеры. Общий темп разработки в норме, критических проблем нет.</p><div class="stitle">Что сделано вчера</div><p>• Алексей закрыл 2 тикета по API<br>• Маша завершила прототип нового экрана<br>• Дима провёл звонок с клиентом</p><div class="stitle">Блокеры</div><p>• Ожидаем ответ от эквайера по документации</p></div></div><div class="block-header" style="margin-bottom:8px"><div class="blabel" style="color:var(--ink);font-size:10px;text-transform:uppercase;letter-spacing:0.09em;font-weight:700">Задачи на сегодня</div></div><div class="action-items"><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Алексей:</span> Продолжить работу над платёжной интеграцией</div></div></div><div class="action-item"><div class="action-left"><span class="action-check">✓</span><div><span class="action-person">Маша:</span> Передать прототип на ревью</div></div></div></div>'
+  }
+];
+
+function switchMeeting(el, idx) {
+  document.querySelectorAll('.sidebar-item').forEach(function(i){ i.classList.remove('active'); });
+  el.classList.add('active');
+  var m = meetings[idx];
+  document.querySelector('.screen-meeting-title').textContent = m.title;
+  document.querySelector('.screen-meta').innerHTML = '<span>' + m.meta + '</span><span class="meta-tag">✓ Обработано</span>';
+  document.querySelector('.screen-url').textContent = m.url;
+  document.getElementById('panel-summary').innerHTML = m.summary;
+  switchTab('summary');
+}
+
+function setHeroEmail(style){document.getElementById('estab-detailed').classList.toggle('active',style==='detailed');document.getElementById('estab-short').classList.toggle('active',style==='short');var el=document.getElementById('hero-email-body');if(style==='short'){el.innerHTML='<p>Уважаемые коллеги,</p><p>По итогам встречи от 25 марта сообщаю о принятых решениях и задачах для исполнения.</p><p><strong>Принятые решения:</strong> дата релиза перенесена на 1 апреля в связи с выявленным дефектом в платёжном модуле.</p><p><strong>Задачи и ответственные:</strong></p><ul><li>Алексей Иванов — устранить ошибку 422 в платёжном API. Срок: 28 марта</li><li>Мария Смирнова — актуализировать дизайн чекаута. Срок: 27 марта</li><li>Дмитрий Козлов — уведомить клиента об изменении сроков. Срок: сегодня</li></ul><p><strong>Следующая встреча:</strong> 1 апреля, 12:00.<br>С уважением, Дмитрий Козлов</p>';}else{el.innerHTML='<p>Уважаемые коллеги,</p><p>По итогам встречи команды от 25 марта направляю краткое резюме принятых решений и перечень задач для исполнения.</p><p><strong>Принятые решения:</strong></p><ul><li>Дата релиза перенесена с 28 марта на 1 апреля в связи с выявленным критическим дефектом в модуле платёжной интеграции</li><li>Алексей Иванов сосредотачивает усилия на устранении ошибки 422 при прохождении 3D-Secure авторизации</li></ul><p><strong>Задачи и ответственные:</strong></p><ul><li>Алексей Иванов — устранить ошибку 422 в платёжном API. Срок: 28 марта</li><li>Мария Смирнова — актуализировать дизайн чекаута, передать макет на согласование. Срок: 27 марта</li><li>Дмитрий Козлов — уведомить клиента об изменении сроков релиза. Срок: сегодня</li></ul><p><strong>Следующая встреча:</strong> 1 апреля, 12:00. Ссылка для подключения остаётся прежней.</p><p>С уважением,<br>Дмитрий Козлов</p>';}}
+function toggleAccordion(trigger){var panel=trigger.nextElementSibling;var isOpen=trigger.classList.contains('open');document.querySelectorAll('.benefit-trigger').forEach(function(t){t.classList.remove('open');});document.querySelectorAll('.benefit-panel').forEach(function(p){p.classList.remove('open');});if(!isOpen){trigger.classList.add('open');panel.classList.add('open');}}
+function switchAccordionEmail(style){document.getElementById('acc-email-detailed').classList.toggle('active',style==='detailed');document.getElementById('acc-email-short').classList.toggle('active',style==='short');var el=document.getElementById('acc-email-content');if(style==='short'){el.innerHTML='<p>Уважаемые коллеги,</p><p>По итогам встречи от 25 марта сообщаю о принятых решениях и задачах для исполнения.</p><p><strong>Принятые решения:</strong> дата релиза перенесена на 1 апреля в связи с выявленным дефектом в платёжном модуле.</p><p><strong>Задачи и ответственные:</strong></p><ul><li>Алексей Иванов — устранить ошибку 422 в платёжном API. Срок: 28 марта</li><li>Мария Смирнова — актуализировать дизайн чекаута. Срок: 27 марта</li><li>Дмитрий Козлов — уведомить клиента об изменении сроков. Срок: сегодня</li></ul><p><strong>Следующая встреча:</strong> 1 апреля, 12:00.<br>С уважением, Дмитрий Козлов</p>';}else{el.innerHTML='<p>Уважаемые коллеги,</p><p>По итогам встречи команды от 25 марта направляю краткое резюме принятых решений и перечень задач для исполнения.</p><p><strong>Принятые решения:</strong></p><ul><li>Дата релиза перенесена с 28 марта на 1 апреля в связи с выявленным критическим дефектом в модуле платёжной интеграции</li><li>Алексей Иванов сосредотачивает усилия на устранении ошибки 422 при прохождении 3D-Secure авторизации</li></ul><p><strong>Задачи и ответственные:</strong></p><ul><li>Алексей Иванов — устранить ошибку 422 в платёжном API. Срок: 28 марта</li><li>Мария Смирнова — актуализировать дизайн чекаута, передать макет на согласование. Срок: 27 марта</li><li>Дмитрий Козлов — уведомить клиента об изменении сроков релиза. Срок: сегодня</li></ul><p><strong>Следующая встреча:</strong> 1 апреля, 12:00. Ссылка для подключения остаётся прежней.</p><p>С уважением,<br>Дмитрий Козлов</p>';}}
+function doCopy(text,btn){try{navigator.clipboard.writeText(text);}catch(e){}var isIconOnly=btn.classList.contains('copy-icon-only');var orig=btn.innerHTML;btn.classList.add('copied');btn.innerHTML=isIconOnly?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Скопировано';var t=document.getElementById('toast');t.classList.add('show');setTimeout(function(){t.classList.remove('show');btn.classList.remove('copied');btn.innerHTML=orig;},2000);}
+</script>
+</body>
+</html>
